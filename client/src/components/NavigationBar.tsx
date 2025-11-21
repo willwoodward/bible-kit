@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { ThemeToggle } from './ThemeToggle';
+import { FullscreenToggle } from './FullscreenToggle';
 
 interface NavigationBarProps {
   onNavigate: (book: string, chapter: number) => void;
@@ -119,7 +120,10 @@ export function NavigationBar({ onNavigate, currentBook, currentChapter }: Navig
           />
         </form>
 
-        <ThemeToggle />
+        <div className="flex items-center gap-2">
+          <FullscreenToggle />
+          <ThemeToggle />
+        </div>
       </div>
     </nav>
   );

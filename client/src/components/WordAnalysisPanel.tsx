@@ -1,13 +1,15 @@
 import { motion } from 'framer-motion';
 import { X, BarChart3, BookOpen, Hash } from 'lucide-react';
 import type { WordAnalysis } from '../types/wordAnalysis';
+import { VerseCard } from './VerseCard';
 
 interface WordAnalysisPanelProps {
   analysis: WordAnalysis;
   onClose: () => void;
+  onVerseClick?: (reference: string) => void;
 }
 
-export function WordAnalysisPanel({ analysis, onClose }: WordAnalysisPanelProps) {
+export function WordAnalysisPanel({ analysis, onClose, onVerseClick }: WordAnalysisPanelProps) {
   return (
     <motion.div
       initial={{ x: '100%' }}
@@ -72,17 +74,12 @@ export function WordAnalysisPanel({ analysis, onClose }: WordAnalysisPanelProps)
             </div>
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {analysis.occurrences.slice(0, 10).map((occ, idx) => (
-                <div
+                <VerseCard
                   key={idx}
-                  className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded border border-zinc-200 dark:border-zinc-700"
-                >
-                  <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-1">
-                    {occ.reference}
-                  </div>
-                  <div className="text-sm text-zinc-800 dark:text-zinc-200">
-                    {occ.context}
-                  </div>
-                </div>
+                  reference={occ.reference}
+                  content={occ.context}
+                  onClick={() => onVerseClick?.(occ.reference)}
+                />
               ))}
               {analysis.occurrences.length > 10 && (
                 <div className="text-xs text-center text-zinc-500 dark:text-zinc-500 py-2">

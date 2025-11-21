@@ -1,7 +1,42 @@
-import type { Verse, PassageResponse, PassageElement } from '../types/bible';
+import type { Verse, PassageResponse, PassageElement, SearchResponse } from '../types/bible';
 
 const ESV_API_BASE_URL = 'https://api.esv.org/v3/passage/text/';
+const ESV_SEARCH_API_URL = 'https://api.esv.org/v3/passage/search/';
 const API_KEY = import.meta.env.VITE_ESV_API_KEY;
+
+export async function searchPassages(
+  query: string,
+  pageSize: number = 20,
+  page: number = 1
+): Promise<SearchResponse> {
+  if (!query.trim()) {
+    return {
+      page: 1,
+      total_results: 0,
+      total_pages: 0,
+      results: [],
+    };
+  }
+
+  const params = new URLSearchParams({
+    q: query,
+    'page-size': pageSize.toString(),
+    'page': page.toString(),
+  });
+
+  const response = await fetch(`${ESV_SEARCH_API_URL}?${params}`, {
+    headers: {
+      'Authorization': `Token ${API_KEY}`,
+    },
+  });
+
+  if (!response.ok) {
+    throw new Error(`Failed to search passages: ${response.statusText}`);
+  }
+
+  const data = await response.json();
+  return data;
+}
 
 export async function fetchPassage(book: string, chapter: number): Promise<PassageResponse> {
   const reference = `${book} ${chapter}`;

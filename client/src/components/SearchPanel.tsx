@@ -1,38 +1,103 @@
 import { motion } from 'framer-motion';
-import { Search, X } from 'lucide-react';
-import { useState } from 'react';
+import { Search, X, Loader2 } from 'lucide-react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Input } from '@/components/ui/input';
+import { searchPassages } from '../services/esvApi';
+import type { SearchResult } from '../types/bible';
+import { VerseCard } from './VerseCard';
 
 interface SearchPanelProps {
   onClose: () => void;
+  onVerseClick?: (reference: string) => void;
 }
 
-export function SearchPanel({ onClose }: SearchPanelProps) {
-  const [query, setQuery] = useState('');
+const PAGE_SIZE = 10;
 
-  // Mock search results
-  const mockResults = [
-    {
-      reference: 'John 3:16',
-      text: 'For God so loved the world that he gave his one and only Son, that whoever believes in him shall not perish but have eternal life.',
-    },
-    {
-      reference: 'Romans 8:28',
-      text: 'And we know that in all things God works for the good of those who love him, who have been called according to his purpose.',
-    },
-    {
-      reference: 'Philippians 4:13',
-      text: 'I can do all this through him who gives me strength.',
-    },
-    {
-      reference: 'Psalm 23:1',
-      text: 'The Lord is my shepherd, I lack nothing.',
-    },
-    {
-      reference: 'Proverbs 3:5-6',
-      text: 'Trust in the Lord with all your heart and lean not on your own understanding; in all your ways submit to him, and he will make your paths straight.',
-    },
-  ];
+export function SearchPanel({ onClose, onVerseClick }: SearchPanelProps) {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState<SearchResult[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [totalResults, setTotalResults] = useState(0);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const observerTarget = useRef<HTMLDivElement>(null);
+
+  // Debounced search effect (initial search)
+  useEffect(() => {
+    if (!query.trim()) {
+      setResults([]);
+      setTotalResults(0);
+      setError(null);
+      setCurrentPage(1);
+      setHasMore(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    setCurrentPage(1);
+
+    const timer = setTimeout(async () => {
+      try {
+        const data = await searchPassages(query, PAGE_SIZE, 1);
+        setResults(data.results);
+        setTotalResults(data.total_results);
+        setHasMore(data.total_pages > 1);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Failed to search passages');
+        setResults([]);
+        setTotalResults(0);
+        setHasMore(false);
+      } finally {
+        setLoading(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(timer);
+  }, [query]);
+
+  // Load more results
+  const loadMore = useCallback(async () => {
+    if (!query.trim() || loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const nextPage = currentPage + 1;
+      const data = await searchPassages(query, PAGE_SIZE, nextPage);
+      setResults(prev => [...prev, ...data.results]);
+      setCurrentPage(nextPage);
+      setHasMore(nextPage < data.total_pages);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load more results');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [query, currentPage, hasMore, loadingMore]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore) {
+          loadMore();
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    const currentTarget = observerTarget.current;
+    if (currentTarget) {
+      observer.observe(currentTarget);
+    }
+
+    return () => {
+      if (currentTarget) {
+        observer.unobserve(currentTarget);
+      }
+    };
+  }, [hasMore, loadingMore, loadMore]);
 
   return (
     <motion.div
@@ -61,6 +126,7 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
           <Input
+            id="bible-search-input"
             type="text"
             placeholder="Search verses..."
             value={query}
@@ -72,23 +138,72 @@ export function SearchPanel({ onClose }: SearchPanelProps) {
 
       {/* Results */}
       <div className="p-4 space-y-3">
-        <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
-          {mockResults.length} results found
-        </div>
-
-        {mockResults.map((result, idx) => (
-          <div
-            key={idx}
-            className="p-3 bg-zinc-50 dark:bg-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-700 hover:border-zinc-300 dark:hover:border-zinc-600 transition-colors cursor-pointer"
-          >
-            <div className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2">
-              {result.reference}
-            </div>
-            <div className="text-sm text-zinc-800 dark:text-zinc-200 leading-relaxed">
-              {result.text}
-            </div>
+        {loading && (
+          <div className="flex items-center justify-center py-8">
+            <Loader2 className="h-6 w-6 text-zinc-400 animate-spin" />
           </div>
-        ))}
+        )}
+
+        {error && (
+          <div className="text-sm text-red-600 dark:text-red-400 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg">
+            {error}
+          </div>
+        )}
+
+        {!loading && !error && query && results.length === 0 && (
+          <div className="text-sm text-zinc-600 dark:text-zinc-400 text-center py-8">
+            No results found for "{query}"
+          </div>
+        )}
+
+        {!loading && !error && results.length > 0 && (
+          <>
+            <div className="text-sm text-zinc-600 dark:text-zinc-400 mb-4">
+              Showing {results.length} of {totalResults} result{totalResults !== 1 ? 's' : ''}
+            </div>
+
+            {results.map((result, idx) => (
+              <VerseCard
+                key={idx}
+                reference={result.reference}
+                content={result.content}
+                onClick={() => onVerseClick?.(result.reference)}
+              />
+            ))}
+
+            {/* Infinite scroll trigger */}
+            {hasMore && (
+              <div ref={observerTarget} className="py-4 flex justify-center">
+                {loadingMore && (
+                  <Loader2 className="h-5 w-5 text-zinc-400 animate-spin" />
+                )}
+              </div>
+            )}
+          </>
+        )}
+
+        {!loading && !error && !query && (
+          <div className="text-sm text-zinc-600 dark:text-zinc-400 text-center py-8">
+            Enter a search query to find verses
+          </div>
+        )}
+
+        {/* ESV Attribution */}
+        <div className="mt-8 pt-4 border-t border-zinc-200 dark:border-zinc-800">
+          <p className="text-xs text-zinc-500 dark:text-zinc-500 leading-relaxed">
+            Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®),
+            © 2001 by Crossway, a publishing ministry of Good News Publishers. Used by permission.
+            All rights reserved.{' '}
+            <a
+              href="https://www.esv.org"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="underline hover:text-zinc-700 dark:hover:text-zinc-400"
+            >
+              ESV.org
+            </a>
+          </p>
+        </div>
       </div>
     </motion.div>
   );

@@ -5,6 +5,7 @@ import type { WordAnalysis, WordOccurrence } from '../types/wordAnalysis';
 import { normalizeWord, isStopword } from '../types/wordAnalysis';
 import { Loader2, AlertCircle } from 'lucide-react';
 import { WordAnalysisPanel } from './WordAnalysisPanel';
+import { VerseAnalysisPanel } from './VerseAnalysisPanel';
 
 interface PassageDisplayProps {
   reference: string;
@@ -14,9 +15,31 @@ interface PassageDisplayProps {
   selectedWord: string | null;
   onWordSelect: (word: string | null) => void;
   hoveredWordFromAnalysis: string | null;
+  selectedVerse: number | null;
+  onVerseSelect: (verse: number | null) => void;
+  selectedSection: string | null;
+  onSectionSelect: (section: string | null) => void;
+  selectedChapter: boolean;
+  onChapterSelect: (selected: boolean) => void;
+  onVerseClick?: (reference: string) => void;
 }
 
-export function PassageDisplay({ reference, elements, loading, error, selectedWord, onWordSelect, hoveredWordFromAnalysis }: PassageDisplayProps) {
+export function PassageDisplay({
+  reference,
+  elements,
+  loading,
+  error,
+  selectedWord,
+  onWordSelect,
+  hoveredWordFromAnalysis,
+  selectedVerse,
+  onVerseSelect,
+  selectedSection,
+  onSectionSelect,
+  selectedChapter,
+  onChapterSelect,
+  onVerseClick
+}: PassageDisplayProps) {
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
 
   // Calculate word frequencies and build word map
@@ -188,17 +211,26 @@ export function PassageDisplay({ reference, elements, loading, error, selectedWo
     <div className="h-[calc(100vh-3rem)] overflow-y-auto bg-zinc-50 dark:bg-zinc-900">
       <div className="py-8 px-4 sm:px-6 lg:px-8">
         <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg p-8 sm:p-12 min-h-[85vh]">
-        <h1 className="text-3xl font-semibold mb-8 text-zinc-900">
+        <h1
+          className={`text-3xl font-semibold mb-8 text-black cursor-pointer transition-all rounded px-2 py-1 -mx-2 ${
+            selectedChapter ? 'bg-blue-100' : 'hover:bg-blue-50'
+          }`}
+          onClick={() => onChapterSelect(!selectedChapter)}
+        >
           {reference}
         </h1>
 
         <div className="text-zinc-800 leading-relaxed">
           {elements.map((element, index) => {
             if (element.type === 'heading') {
+              const isSelected = selectedSection === element.content;
               return (
                 <h2
                   key={`heading-${index}`}
-                  className="text-xl font-semibold mt-10 mb-5 text-zinc-900 first:mt-0"
+                  className={`text-xl font-semibold mt-10 mb-5 text-black first:mt-0 cursor-pointer transition-all rounded px-2 py-1 -mx-2 ${
+                    isSelected ? 'bg-green-100' : 'hover:bg-green-50'
+                  }`}
+                  onClick={() => onSectionSelect(isSelected ? null : element.content || null)}
                 >
                   {element.content}
                 </h2>
@@ -210,9 +242,22 @@ export function PassageDisplay({ reference, elements, loading, error, selectedWo
             }
 
             if (element.type === 'verse' && element.verse) {
+              const isVerseSelected = selectedVerse === element.verse.number;
               return (
-                <span key={`verse-${element.verse.number}`} className="text-[16px] leading-[1.8]">
-                  <sup className="text-zinc-400 text-[11px] font-medium mr-1.5">
+                <span
+                  key={`verse-${element.verse.number}`}
+                  data-verse={element.verse.number}
+                  className={`text-[16px] leading-[1.8] transition-all ${
+                    isVerseSelected ? 'bg-purple-100' : ''
+                  }`}
+                >
+                  <sup
+                    className="text-zinc-400 text-[11px] font-medium mr-1.5 cursor-pointer hover:text-zinc-600 transition-colors"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onVerseSelect(isVerseSelected ? null : element.verse!.number);
+                    }}
+                  >
                     {element.verse.number}
                   </sup>
                   {tokenizeVerse(element.verse.text, element.verse.number)}{' '}
@@ -238,6 +283,31 @@ export function PassageDisplay({ reference, elements, loading, error, selectedWo
             key="word-analysis"
             analysis={analyzeWord(selectedWord)}
             onClose={() => onWordSelect(null)}
+            onVerseClick={onVerseClick}
+          />
+        )}
+        {selectedVerse && (
+          <VerseAnalysisPanel
+            key="verse-analysis"
+            type="verse"
+            identifier={selectedVerse}
+            onClose={() => onVerseSelect(null)}
+          />
+        )}
+        {selectedSection && (
+          <VerseAnalysisPanel
+            key="section-analysis"
+            type="section"
+            identifier={selectedSection}
+            onClose={() => onSectionSelect(null)}
+          />
+        )}
+        {selectedChapter && (
+          <VerseAnalysisPanel
+            key="chapter-analysis"
+            type="chapter"
+            identifier={reference}
+            onClose={() => onChapterSelect(false)}
           />
         )}
       </AnimatePresence>

@@ -15,3 +15,15 @@ export interface PassageResponse {
   verses: Verse[];
   elements: PassageElement[];
 }
+
+export interface SearchResult {
+  reference: string;
+  content: string;
+}
+
+export interface SearchResponse {
+  page: number;
+  total_results: number;
+  total_pages: number;
+  results: SearchResult[];
+}

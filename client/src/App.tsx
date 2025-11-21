@@ -1,7 +1,12 @@
 import { useState, useEffect } from 'react'
+import { AnimatePresence } from 'framer-motion'
 import { NavigationBar } from './components/NavigationBar'
 import { PassageDisplay } from './components/PassageDisplay'
 import { ThemeProvider } from './components/ThemeProvider'
+import { Sidebar } from './components/Sidebar'
+import { SearchPanel } from './components/SearchPanel'
+import { ContextPanel } from './components/ContextPanel'
+import { AnalysisPanel } from './components/AnalysisPanel'
 import { fetchPassage } from './services/esvApi'
 import type { PassageElement } from './types/bible'
 
@@ -12,6 +17,9 @@ function App() {
   const [elements, setElements] = useState<PassageElement[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [activePanel, setActivePanel] = useState<'search' | 'context' | 'analysis' | null>(null)
+  const [selectedWord, setSelectedWord] = useState<string | null>(null)
+  const [hoveredWordFromAnalysis, setHoveredWordFromAnalysis] = useState<string | null>(null)
 
   const loadPassage = async (bookName: string, chapterNum: number) => {
     setLoading(true)
@@ -57,12 +65,41 @@ function App() {
           currentChapter={chapter}
         />
 
-        <PassageDisplay
-          reference={reference}
-          elements={elements}
-          loading={loading}
-          error={error}
+        <Sidebar
+          activePanel={activePanel}
+          onPanelChange={setActivePanel}
         />
+
+        <AnimatePresence>
+          {activePanel === 'search' && (
+            <SearchPanel key="search" onClose={() => setActivePanel(null)} />
+          )}
+          {activePanel === 'context' && (
+            <ContextPanel key="context" onClose={() => setActivePanel(null)} />
+          )}
+          {activePanel === 'analysis' && (
+            <AnalysisPanel
+              key="analysis"
+              onClose={() => setActivePanel(null)}
+              elements={elements}
+              reference={reference}
+              onWordHover={setHoveredWordFromAnalysis}
+              onWordClick={setSelectedWord}
+            />
+          )}
+        </AnimatePresence>
+
+        <div className="ml-16">
+          <PassageDisplay
+            reference={reference}
+            elements={elements}
+            loading={loading}
+            error={error}
+            selectedWord={selectedWord}
+            onWordSelect={setSelectedWord}
+            hoveredWordFromAnalysis={hoveredWordFromAnalysis}
+          />
+        </div>
       </div>
     </ThemeProvider>
   )

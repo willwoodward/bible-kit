@@ -11,10 +11,12 @@ interface PassageDisplayProps {
   elements: PassageElement[];
   loading?: boolean;
   error?: string | null;
+  selectedWord: string | null;
+  onWordSelect: (word: string | null) => void;
+  hoveredWordFromAnalysis: string | null;
 }
 
-export function PassageDisplay({ reference, elements, loading, error }: PassageDisplayProps) {
-  const [selectedWord, setSelectedWord] = useState<string | null>(null);
+export function PassageDisplay({ reference, elements, loading, error, selectedWord, onWordSelect, hoveredWordFromAnalysis }: PassageDisplayProps) {
   const [hoveredWord, setHoveredWord] = useState<string | null>(null);
 
   // Calculate word frequencies and build word map
@@ -107,7 +109,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
   const renderWord = (word: string, index: number, verseNum: number) => {
     const normalized = normalizeWord(word);
     const isSelected = selectedWord === normalized;
-    const isHovered = hoveredWord === normalized;
+    const isHovered = hoveredWord === normalized || hoveredWordFromAnalysis === normalized;
 
     return (
       <span
@@ -118,7 +120,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
           ${isHovered && !isSelected ? 'bg-yellow-50 dark:bg-yellow-950/20' : ''}
           hover:bg-yellow-50 dark:hover:bg-yellow-950/20
         `}
-        onClick={() => setSelectedWord(isSelected ? null : normalized)}
+        onClick={() => onWordSelect(isSelected ? null : normalized)}
         onMouseEnter={() => setHoveredWord(normalized)}
         onMouseLeave={() => setHoveredWord(null)}
       >
@@ -154,7 +156,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
 
   if (loading) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
+      <div className="min-h-[80vh] flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="flex items-center gap-2 text-muted-foreground">
           <Loader2 className="h-5 w-5 animate-spin" />
           <span className="text-sm">Loading passage...</span>
@@ -165,7 +167,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
 
   if (error) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
+      <div className="min-h-[80vh] flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="flex items-center gap-2 text-red-600">
           <AlertCircle className="h-5 w-5" />
           <span className="text-sm">Error: {error}</span>
@@ -176,15 +178,16 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
 
   if (elements.length === 0) {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center">
+      <div className="min-h-[80vh] flex items-center justify-center bg-zinc-50 dark:bg-zinc-900">
         <div className="text-zinc-500 text-sm">No verses to display</div>
       </div>
     );
   }
 
   return (
-    <div className="py-8 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg p-8 sm:p-12 min-h-[85vh]">
+    <div className="h-[calc(100vh-3rem)] overflow-y-auto bg-zinc-50 dark:bg-zinc-900">
+      <div className="py-8 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto bg-white shadow-xl rounded-lg p-8 sm:p-12 min-h-[85vh]">
         <h1 className="text-3xl font-semibold mb-8 text-zinc-900">
           {reference}
         </h1>
@@ -226,6 +229,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
             Scripture quotations are from the ESV® Bible (The Holy Bible, English Standard Version®).
           </p>
         </div>
+        </div>
       </div>
 
       <AnimatePresence>
@@ -233,7 +237,7 @@ export function PassageDisplay({ reference, elements, loading, error }: PassageD
           <WordAnalysisPanel
             key="word-analysis"
             analysis={analyzeWord(selectedWord)}
-            onClose={() => setSelectedWord(null)}
+            onClose={() => onWordSelect(null)}
           />
         )}
       </AnimatePresence>
